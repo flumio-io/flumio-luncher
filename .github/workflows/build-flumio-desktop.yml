@@ -1,0 +1,94 @@
+# Grammar fixes:
+# - "so now make github action that will triggered in release branch
+#    and will run mac arm64 and win x 64 and linux x64
+#    and publish it as github 'artifacts' or something so users can donwload it"
+#   ->
+#   "So now make a GitHub Action that will be triggered on the release branch,
+#    run mac arm64, Windows x64 and Linux x64 builds,
+#    and publish them as GitHub artifacts so users can download them."
+
+# File: .github/workflows/build-flumio-desktop.yml
+#
+# What this does:
+# - Trigger on push to branch "release"
+# - Build Flumio Desktop on:
+#     * macOS (arm64)
+#     * Windows (x64)
+#     * Linux (x64)
+# - Run your existing build: tsc + electron-builder
+# - Upload the generated installers in dist/ as GitHub Actions artifacts
+#
+# NOTE:
+# - Users can download artifacts from the Actions page.
+#   If you want nice public download links, you can later add a "upload to GitHub Releases" step.
+
+name: Build Flumio Desktop
+
+on:
+  push:
+    branches:
+      - release
+
+permissions:
+  contents: read   # we only need read for checkout; change later if you add Releases upload
+
+jobs:
+  build:
+    name: Build desktop (${{ matrix.os }} / ${{ matrix.target }} / ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x64 AppImage
+          - os: ubuntu-latest
+            target: linux
+            arch: x64
+            artifact_suffix: linux-x64
+
+          # Windows x64 NSIS
+          - os: windows-latest
+            target: win
+            arch: x64
+            artifact_suffix: win-x64
+
+          # macOS arm64 DMG
+          # (macos-14 is Apple Silicon runner; good for arm64)
+          - os: macos-14
+            target: mac
+            arch: arm64
+            artifact_suffix: mac-arm64
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      # Build per-platform using electron-builder.
+      # Assumes your package.json "build" section is already configured (appId, icons, targets).
+      # We call electron-builder directly so we can pass --mac/--win/--linux and arch flags.
+      - name: Build ${{ matrix.target }} ${{ matrix.arch }} installer
+        run: |
+          npx electron-builder --${{ matrix.target }} --${{ matrix.arch }} -p never
+
+      # Upload everything from dist/ as an artifact for this platform.
+      # You can refine the pattern later (e.g. only *.exe, *.dmg, *.AppImage).
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flumio-desktop-${{ matrix.artifact_suffix }}
+          path: |
+            dist/**
+          if-no-files-found: error
