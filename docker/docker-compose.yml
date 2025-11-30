@@ -1,0 +1,12 @@
+# docker/docker-compose.yml
+# Super simple test container with a built-in HTML page.
+# No volumes, no config, just HTTP on localhost:8080.
+
+version: "3.9"
+
+services:
+  test-web:
+    image: nginxdemos/hello
+    restart: unless-stopped
+    ports:
+      - "8080:80"
