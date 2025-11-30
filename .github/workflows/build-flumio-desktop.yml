@@ -27,7 +27,7 @@ name: Build Flumio Desktop
 on:
   push:
     branches:
-      - release
+      - main
 
 permissions:
   contents: read   # we only need read for checkout; change later if you add Releases upload
