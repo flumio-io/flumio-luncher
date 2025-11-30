@@ -1,36 +1,13 @@
-# Grammar fixes:
-# - "so now make github action that will triggered in release branch
-#    and will run mac arm64 and win x 64 and linux x64
-#    and publish it as github 'artifacts' or something so users can donwload it"
-#   ->
-#   "So now make a GitHub Action that will be triggered on the release branch,
-#    run mac arm64, Windows x64 and Linux x64 builds,
-#    and publish them as GitHub artifacts so users can download them."
-
-# File: .github/workflows/build-flumio-desktop.yml
-#
-# What this does:
-# - Trigger on push to branch "release"
-# - Build Flumio Desktop on:
-#     * macOS (arm64)
-#     * Windows (x64)
-#     * Linux (x64)
-# - Run your existing build: tsc + electron-builder
-# - Upload the generated installers in dist/ as GitHub Actions artifacts
-#
-# NOTE:
-# - Users can download artifacts from the Actions page.
-#   If you want nice public download links, you can later add a "upload to GitHub Releases" step.
-
-name: Build Flumio Desktop
+name: Build and Release Flumio Desktop
 
 on:
   push:
     branches:
       - main
 
+# We need write access to create GitHub Releases
 permissions:
-  contents: read   # we only need read for checkout; change later if you add Releases upload
+  contents: write
 
 jobs:
   build:
@@ -53,8 +30,7 @@ jobs:
             arch: x64
             artifact_suffix: win-x64
 
-          # macOS arm64 DMG
-          # (macos-14 is Apple Silicon runner; good for arm64)
+          # macOS arm64 DMG (macos-14 = Apple Silicon runner)
           - os: macos-14
             target: mac
             arch: arm64
@@ -78,13 +54,12 @@ jobs:
 
       # Build per-platform using electron-builder.
       # Assumes your package.json "build" section is already configured (appId, icons, targets).
-      # We call electron-builder directly so we can pass --mac/--win/--linux and arch flags.
       - name: Build ${{ matrix.target }} ${{ matrix.arch }} installer
         run: |
           npx electron-builder --${{ matrix.target }} --${{ matrix.arch }} -p never
 
       # Upload everything from dist/ as an artifact for this platform.
-      # You can refine the pattern later (e.g. only *.exe, *.dmg, *.AppImage).
+      # You can later narrow this to *.exe / *.dmg / *.AppImage, etc.
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -92,3 +67,40 @@ jobs:
           path: |
             dist/**
           if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: ls -R release
+
+      # Create a GitHub Release and attach all built binaries.
+      # softprops/action-gh-release uses the GITHUB_TOKEN automatically.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Tag name for this build (you can change this scheme later)
+          tag_name: desktop-${{ github.run_number }}
+          name: Flumio Desktop build ${{ github.run_number }}
+          body: |
+            Automated desktop build from branch `${{ github.ref }}`.
+            - Windows: flumio-desktop-win-x64
+            - macOS (arm64): flumio-desktop-mac-arm64
+            - Linux (x64): flumio-desktop-linux-x64
+
+          # Mark as pre-release for safety; flip to false when you're ready.
+          prerelease: true
+          draft: false
+
+          # All files from the "release" folder become assets on the Release
+          files: |
+            release/**
