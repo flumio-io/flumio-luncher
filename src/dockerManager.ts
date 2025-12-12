@@ -24,7 +24,7 @@ async function getRawDockerStatus(): Promise<RawDockerStatus> {
 
         if (platform === "win32") {
             const {stdout} = await asyncExec("where docker");
-            return stdout.split(/\r?\n/)[0].trim()
+            return stdout.split(/\r?\n/)[0].trim() as RawDockerStatus
         }
 
         const {stdout} = await asyncExec(
