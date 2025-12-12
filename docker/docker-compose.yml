@@ -1,12 +1,59 @@
-# docker/docker-compose.yml
-# Super simple test container with a built-in HTML page.
-# No volumes, no config, just HTTP on localhost:8080.
-
-version: "3.9"
-
 services:
-  test-web:
-    image: nginxdemos/hello
-    restart: unless-stopped
+  flumio_app:
+    image: flumio/flumio-app:latest
     ports:
-      - "8080:80"
+      - "3000:3000"
+    networks:
+      - flumio_network
+    environment:
+      PUBLIC_ENV: prod
+      MODE: production
+      DOMAIN: http://localhost:3000
+      PORT: 3000
+      WEBSOCKET_PORT: 3000
+      JWT_SECRET: ddkaldkasldksaldkaldkasldk
+      DATABASE_URL: ./drizzle/flumio.db
+      DB_LOGIN: admin
+      DB_PASSWORD: admin
+      REDIS_URL: redis://redis:6379
+
+    volumes:
+      - flumio_data:/app/.data
+      - flumio_run:/app/.run
+
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: lumo
+    ports:
+      - "5432:5432"
+    networks:
+      - flumio_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - flumio_network
+    volumes:
+      - redis_data:/data
+networks:
+  flumio_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  flumio_data:
+  flumio_run:

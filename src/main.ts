@@ -9,7 +9,7 @@ import {startStack, waitForHttpReady} from "./dockerManager";
 import {showDockerMissingDialog} from "./dockerInstallHelper";
 import {join} from "node:path";
 
-const APP_URL = "http://localhost:8080"; // nginx test, or your Flumio URL
+const APP_URL = "http://localhost:3000"; // nginx test, or your Flumio URL
 
 let mainWindow: BrowserWindow | null = null;
 app.setName("Flumio");
@@ -71,40 +71,10 @@ async function bootstrapApp(): Promise<void> {
     const status = await startStack();
 
     if (status === "docker_missing") {
-        // Open Docker download page and quit.
         await showDockerMissingDialog();
         app.quit();
         return;
     }
-    //
-    // if (status === "docker_missing") {
-    //     await dialog.showMessageBox({
-    //         type: "error",
-    //         title: "Docker is not installed",
-    //         message: "Docker (Docker Desktop) is not installed or not on PATH.",
-    //         detail:
-    //             "Install Docker Desktop first, then start Flumio Desktop again.\n\n" +
-    //             "On macOS: install Docker Desktop for Mac.\n" +
-    //             "On Windows: install Docker Desktop for Windows.",
-    //         buttons: ["Open Docker website", "Close"]
-    //     }).then((res) => {
-    //         if (res.response === 0) {
-    //             const url = "https://www.docker.com/products/docker-desktop/";
-    //             const {exec} =
-    //                 require("node:child_process") as typeof import("node:child_process");
-    //             const cmd =
-    //                 process.platform === "win32"
-    //                     ? `start "" "${url}"`
-    //                     : process.platform === "darwin"
-    //                         ? `open "${url}"`
-    //                         : `xdg-open "${url}"`;
-    //             exec(cmd);
-    //         }
-    //     });
-    //
-    //     app.quit();
-    //     return;
-    // }
 
     if (status === "docker_daemon_off") {
         const res = await dialog.showMessageBox({
@@ -119,7 +89,6 @@ async function bootstrapApp(): Promise<void> {
         });
 
         if (res.response === 0) {
-            // Retry once – if it still fails, you'll get the error dialogs again.
             await bootstrapApp();
         } else {
             app.quit();
